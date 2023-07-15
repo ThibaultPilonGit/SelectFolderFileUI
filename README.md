@@ -1,0 +1,1 @@
+Python project to provide a basic UI for selecting a file or folder and applying processing to it.

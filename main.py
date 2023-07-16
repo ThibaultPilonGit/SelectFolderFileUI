@@ -1,29 +1,30 @@
-# inclure les fichiers ou fonctions qui vont être appelé pour le traitement
+# import files and functions needed for process
 
 # import XXXX
 # from XXXX import XXXX
 
-# si on ouvre un dossier, si on veut directement ouvrir un fichier mettre False
-EST_DOSSIER = True
+# True if process need a folder path, False if process need a file
+IS_FOLDER = True
 
-# les types de fichiers qu'on veut utiliser, seulement extension en minuscule, avec le point
-# exemple ".pdf"
-EXTENSIONS_POSSIBLES = [".mp4", ".m4v", ".avi"]
+# if IS_FOLDER = False, files extension wanted for the process
+# WARNING: only in lowercase, uppercase is automatic
+# example ".pdf"
+FILES_EXTENSION = [".mp4", ".m4v", ".avi"]
 
 
 
 
-def fonctionsTraitement(path_element, liste_elements):
-    """traitement à faire sur les dossier et fichiers
+def process(path_element, list_elements):
+    """process that will be applied on each file in the folder, or in the file
     
     Attrs:
-        - path_element (str): chemin de l'élement sélectionné dans l'UI,
-        chemin d'un dossier si EST_DOSSIER = True, chemin d'un fichier sinon
-        - liste_elements (list(str)) : Si EST_DOSSIER = True, liste de tous les fichiers présent dans le dossier, sans le chemin
-                                       sinon, liste_elements = None
+        - path_element (str): path of the selected element in the ui
+        path of a folder if IS_FOLDER = True, else path of a file
+        - list_elements (list(str)) : if IS_FOLDER = True, list of every file in the folder, just name of the file, without full path
+                                       else, list_elements = None
     """
 
-    # mettre fonctions ou codes de traitement dans cette fonction
+    # put here functions of code of the process
 
 
 
@@ -32,22 +33,22 @@ def fonctionsTraitement(path_element, liste_elements):
 
 
 
-    # fin de la fonction
+    # end of process function
 
 
 
 
 
 
-# ----------------------------------------------------------------------------
-# ----------------------------------------------------------------------------
-# ----------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 #
-#           CODE DE L'UI DE TRAITEMENT DE FICHIERS ET DOSSIERS
+# CODE OF UI, DON'T GO FURTHER IF YOU JUST WANT TO USE THE PROJECT FOR A PROCESS
 #
-# ----------------------------------------------------------------------------
-# ----------------------------------------------------------------------------
-# ----------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 
 
@@ -64,46 +65,42 @@ from PyQt5.QtCore import pyqtSignal, pyqtSlot, QDir, QObject, QThread
 from Ui_ihm import Ui_MainWindow
 
 
-# -------------------- Constante -------------------
+# -------------------- Constant -------------------
 
 
 
-EXTENSIONS_POSSIBLES_MAJ = [x.upper() for x in EXTENSIONS_POSSIBLES]
+FILES_EXTENSION_UPPERCASE = [x.upper() for x in FILES_EXTENSION]
 
 
-# -------------------- Classe -------------------
+# -------------------- Class -------------------
 
 # -------------------------------------------------------------------#
 #                          CLASS WORKER                              #
 # -------------------------------------------------------------------#
 class Worker(QObject):
-    """Classe de thread
-    S'occupe du traitement
+    """Class for thread
+    put the process in a thread and send a signal when the process
+    is finished
     """
     command = pyqtSignal(str, list)
-    signal_traitement_fini = pyqtSignal()
+    signal_process_done = pyqtSignal()
 
     def __init__(self):
         super().__init__()
 
     @pyqtSlot(str, list)
-    def thread_traitement(self, path_et_nom_dossier, liste_elements=None):
+    def thread_process(self, path_and_folder_name, list_elements=None):
         
-        # les fonctions à appeler lors du traitement
-        fonctionsTraitement(path_et_nom_dossier, liste_elements)
+        process(path_and_folder_name, list_elements)
 
-        self.signal_traitement_fini.emit()
-
-        # faire un truc qui fussionne chaque split si un point dans le nom de fichier
+        self.signal_process_done.emit()
 
 
 # -------------------------------------------------------------------#
 #                          CLASS FILEEDIT                            #
 # -------------------------------------------------------------------#
 class FileEdit(QLineEdit):
-    """Classe redéfinissant QlineEdit
-    Ajoute une option de drag & drop de fichier, pour y mettre le path
-    """
+    """QlineEdit class with drag and drop added"""
     def __init__(self, parent):
         super(FileEdit, self).__init__(parent)
 
@@ -133,14 +130,14 @@ class FileEdit(QLineEdit):
 #                         CLASS MAINWINDOW                           #
 # -------------------------------------------------------------------#
 class MainWindow(QMainWindow):
-    """La classe de la fenêtre"""
+    """class of the window"""
     def __init__(self):
         super(MainWindow, self).__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
 
-        self.ui.label_terminer.hide()
-        self.ui.label_traitement.hide()
+        self.ui.label_done.hide()
+        self.ui.label_process.hide()
 
         self.m_thread = QThread()
         self.m_thread.start()
@@ -150,85 +147,84 @@ class MainWindow(QMainWindow):
         self.set_up_connect()
 
     def set_up_connect(self):
-        """Connecte tous les signaux"""
-        # signaux de l'interface
-        self.ui.pushButton_parcourir.clicked.connect(self.choisir_element)
-        self.ui.pushButton_traiter.clicked.connect(self.lancer_traitement)
-        self.ui.fileEdit_path.textChanged.connect(self.masquer_termine)
-        # signaux du thread
-        self.m_worker.command.connect(self.m_worker.thread_traitement)
-        self.m_worker.signal_traitement_fini.connect(self.activer_interface)
+        """Connect every signals"""
+        # signals of the ui
+        self.ui.pushButton_browse.clicked.connect(self.find_element)
+        self.ui.pushButton_process.clicked.connect(self.run_process)
+        self.ui.fileEdit_path.textChanged.connect(self.hide_done)
+        # signals of the thread
+        self.m_worker.command.connect(self.m_worker.thread_process)
+        self.m_worker.signal_process_done.connect(self.enable_ui)
 
-    def adapterConstExtentionFilter(self):
-        """adapte les extensions possibles pour le format de str du filtre de GetOpenFileName"""
-        filtre = "Fichier ("
-        for element in EXTENSIONS_POSSIBLES:
-            filtre = filtre + "*" + element
-        filtre = filtre + ")"
-        return filtre
+    def adapt_const_extention_filter(self):
+        """adapt extension put in FILES_EXTENSION to the format of the filter of GetOpenFileName"""
+        filter = "Files ("
+        for element in FILES_EXTENSION:
+            filter = filter + "*" + element
+        filter = filter + ")"
+        return filter
 
     @pyqtSlot()
-    def choisir_element(self):
-        """ouvre le finder windows et permet d'ouvir seulement les fichier,
-        met le path dans le fileEdit
+    def find_element(self):
+        """open the finder windows,
+        put the path in the fileEdit
         """
-        # fonction à modifier, doit prendre en param le type de chose qu'on veut, dossier(s), fichier(s), et si fichier quel type
-        if EST_DOSSIER:
-            dossier = QFileDialog.getExistingDirectory(self, "Choisir dossier",
+        if IS_FOLDER:
+            folder = QFileDialog.getExistingDirectory(self, "Choose folder",
                                                     QDir.currentPath(), QFileDialog.ShowDirsOnly)
-            self.ui.fileEdit_path.setText(dossier)
+            self.ui.fileEdit_path.setText(folder)
         else:
 
-            fichier, _ = QFileDialog.getOpenFileName(self, "Choisir fichier",
+            file, _ = QFileDialog.getOpenFileName(self, "Choose file",
                                                      QDir.currentPath(),
-                                                     filter=self.adapterConstExtentionFilter())
-            self.ui.fileEdit_path.setText(fichier)
+                                                     filter=self.adapt_const_extention_filter())
+            self.ui.fileEdit_path.setText(file)
 
     @pyqtSlot()
-    def lancer_traitement(self):
-        """appel le thread de traitement"""
-        if EST_DOSSIER:
-            dossier = self.ui.fileEdit_path.text()
-            if os.path.isdir(dossier):
-                donnees = [f for f in os.listdir(dossier) if f.endswith(tuple(EXTENSIONS_POSSIBLES + EXTENSIONS_POSSIBLES_MAJ))]
-                if len(donnees) !=0:
-                    self.desactiver_interface()
-                    self.m_worker.command.emit(dossier, donnees)
+    def run_process(self):
+        """call  the process thread"""
+        if IS_FOLDER:
+            folder = self.ui.fileEdit_path.text()
+            if os.path.isdir(folder):
+                data = [f for f in os.listdir(folder) if f.endswith(tuple(FILES_EXTENSION + FILES_EXTENSION_UPPERCASE))]
+                if len(data) !=0:
+                    self.disable_ui()
+                    self.m_worker.command.emit(folder, data)
         else:
-            fichier = self.ui.fileEdit_path.text()
-            if fichier.endswith(tuple(EXTENSIONS_POSSIBLES + EXTENSIONS_POSSIBLES_MAJ)) and os.path.exists(fichier):
-                self.desactiver_interface()
-                self.m_worker.command.emit(fichier, [])
+            file = self.ui.fileEdit_path.text()
+            if file.endswith(tuple(FILES_EXTENSION + FILES_EXTENSION_UPPERCASE)) and os.path.exists(file):
+                self.disable_ui()
+                self.m_worker.command.emit(file, [])
 
 
 
     @pyqtSlot(str)
-    def masquer_termine(self, text):
-        """masque le label terminé, appelé quand l'url change
+    def hide_done(self, text):
+        """hide the label "done", call when the path change
 
         Attrs:
-        - text (str): ne sert pas, mais envoyé par le signal, texte du fileEdit
+        - text (str): not used, but send by the signal of fileEdit
         """
-        self.ui.label_terminer.hide()
+        self.ui.label_done.hide()
 
     @pyqtSlot()
-    def activer_interface(self):
-        """active toute l'interface une fois le traitement fini"""
-        self.ui.label_traitement.hide()
-        self.ui.label_terminer.show()
-        self.ui.pushButton_traiter.setEnabled(True)
-        self.ui.pushButton_parcourir.setEnabled(True)
+    def enable_ui(self):
+        """enable ui when process is done"""
+        self.ui.label_process.hide()
+        self.ui.label_done.show()
+        self.ui.pushButton_process.setEnabled(True)
+        self.ui.pushButton_browse.setEnabled(True)
         self.ui.fileEdit_path.setEnabled(True)
 
-    def desactiver_interface(self):
-        """désactive l'interface pendant le traitement"""
-        self.ui.label_traitement.show()
-        self.ui.pushButton_traiter.setEnabled(False)
-        self.ui.pushButton_parcourir.setEnabled(False)
+    def disable_ui(self):
+        """disable ui during the process"""
+        self.ui.label_process.show()
+        self.ui.pushButton_process.setEnabled(False)
+        self.ui.pushButton_browse.setEnabled(False)
         self.ui.fileEdit_path.setEnabled(False)
 
 
-# -------------------- Code principal -------------------
+# -------------------- Main code -------------------
 if __name__ == "__main__":
 
     app = QApplication(sys.argv)

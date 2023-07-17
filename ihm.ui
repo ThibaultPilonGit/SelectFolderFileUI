@@ -103,7 +103,7 @@
   <customwidget>
    <class>FileEdit</class>
    <extends>QLineEdit</extends>
-   <header>main.h</header>
+   <header>fileEdit</header>
   </customwidget>
  </customwidgets>
  <tabstops>

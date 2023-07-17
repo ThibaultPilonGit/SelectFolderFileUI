@@ -1,21 +1,3 @@
-
-def process(path_element, list_elements):
-    """process that will be applied on each file in the folder, or in the file
-    
-    Attrs:
-        - path_element (str): path of the selected element in the ui
-        path of a folder if IS_FOLDER = True, else path of a file
-        - list_elements (list(str)) : if IS_FOLDER = True, list of every file in the folder, just name of the file, without full path
-                                       else, list_elements = None
-    """
-
-    # put here functions of code of the process
-
-
-
-    # end of process function
-
-
 # -------------------- Import Lib Standard -------------------
 import sys
 import os
@@ -48,8 +30,10 @@ class FileExtensions:
     WEB_FILES = [".html", ".css", ".js"]
 
 
+# -------------------- Functions -------------------
 
-
+def _do_nothing(self, str_var, list_str_var):
+        pass
 
 
 
@@ -57,7 +41,7 @@ class FileExtensions:
 # -------------------------------------------------------------------#
 #                          CLASS WORKER                              #
 # -------------------------------------------------------------------#
-class Worker(QObject):
+class _Worker(QObject):
     """Class for thread
     put the process in a thread and send a signal when the process
     is finished
@@ -67,11 +51,12 @@ class Worker(QObject):
 
     def __init__(self):
         super().__init__()
+        self.process_func = _do_nothing
 
     @pyqtSlot(str, list)
     def thread_process(self, path_and_folder_name, list_elements=None):
         
-        process(path_and_folder_name, list_elements)
+        self.process_func(path_and_folder_name, list_elements)
 
         self.signal_process_done.emit()
 
@@ -82,10 +67,10 @@ class Worker(QObject):
 # -------------------------------------------------------------------#
 #                         CLASS MAINWINDOW                           #
 # -------------------------------------------------------------------#
-class MainWindow(QMainWindow):
+class _MainWindow(QMainWindow):
     """class of the window"""
     def __init__(self):
-        super(MainWindow, self).__init__()
+        super(_MainWindow, self).__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
 
@@ -94,7 +79,7 @@ class MainWindow(QMainWindow):
 
         self.m_thread = QThread()
         self.m_thread.start()
-        self.m_worker = Worker()
+        self.m_worker = _Worker()
         self.m_worker.moveToThread(self.m_thread)
 
         self.set_up_connect()
@@ -109,10 +94,11 @@ class MainWindow(QMainWindow):
         self.m_worker.command.connect(self.m_worker.thread_process)
         self.m_worker.signal_process_done.connect(self.enable_ui)
 
-    def define_attribute(self, is_folder, files_extension):
+    def define_attribute(self, is_folder, files_extension, process_func):
         self.is_folder = is_folder
         self.files_extension = files_extension
         self.files_extension_uppercase = [x.upper() for x in self.files_extension]
+        self.m_worker.process_func = process_func
 
     def adapt_const_extention_filter(self):
         """adapt extension put in files_extension to the format of the filter of GetOpenFileName"""
@@ -181,25 +167,18 @@ class MainWindow(QMainWindow):
         self.ui.fileEdit_path.setEnabled(False)
 
 
-
-
-
-
-
-
-
-
 class FileFolderUI():
     def __init__(self):
         self.app = QApplication(sys.argv)
-        self.window = MainWindow()
+        self.window = _MainWindow()
         
         self.is_folder = True
         self.files_extension = FileExtensions.DOCUMENTS
-        self.window.define_attribute(self.is_folder, self.files_extension)
+        self.process_func = _do_nothing
+        self.window.define_attribute(self.is_folder, self.files_extension, self.process_func)
 
     def run(self):
-        self.window.define_attribute(self.is_folder, self.files_extension)
+        self.window.define_attribute(self.is_folder, self.files_extension, self.process_func)
         self.window.show()
         sys.exit(self.app.exec())
     

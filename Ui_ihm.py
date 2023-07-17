@@ -49,4 +49,4 @@ class Ui_MainWindow(object):
         self.pushButton_browse.setText(_translate("MainWindow", "browse"))
         self.label_done.setText(_translate("MainWindow", "done !"))
         self.label_process.setText(_translate("MainWindow", "in process..."))
-from main import FileEdit
+from fileEdit import FileEdit

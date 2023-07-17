@@ -1,64 +1,9 @@
-# import files and functions needed for process
-
-# import XXXX
-# from XXXX import XXXX
-
-# True if process need a folder path, False if process need a file
-IS_FOLDER = True
-
-# if IS_FOLDER = False, files extension wanted for the process
-# WARNING: only in lowercase, uppercase is automatic
-# example ".pdf"
-FILES_EXTENSION = [".mp4", ".m4v", ".avi"]
-
-
-
-
-def process(path_element, list_elements):
-    """process that will be applied on each file in the folder, or in the file
-    
-    Attrs:
-        - path_element (str): path of the selected element in the ui
-        path of a folder if IS_FOLDER = True, else path of a file
-        - list_elements (list(str)) : if IS_FOLDER = True, list of every file in the folder, just name of the file, without full path
-                                       else, list_elements = None
-    """
-
-    # put here functions of code of the process
-
-
-
-
-
-
-
-
-    # end of process function
-
-
-
-
-
-
-# ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
-#
-# CODE OF UI, DON'T GO FURTHER IF YOU JUST WANT TO USE THE PROJECT FOR A PROCESS
-#
-# ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
-
-
-
-
 # -------------------- Import Lib Standard -------------------
 import sys
 import os
 
 # -------------------- Import Lib Tier -------------------
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QLineEdit
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog
 from PyQt5.QtCore import pyqtSignal, pyqtSlot, QDir, QObject, QThread
 
 # -------------------- Import Lib User -------------------
@@ -69,15 +14,34 @@ from Ui_ihm import Ui_MainWindow
 
 
 
-FILES_EXTENSION_UPPERCASE = [x.upper() for x in FILES_EXTENSION]
-
-
 # -------------------- Class -------------------
+
+
+class FileExtensions:
+    VIDEOS = [".mp4", ".m4v", ".avi", ".mov", ".wmv"]
+    PICTURES = [".jpg", ".png", ".bmp", ".gif", ".tiff"]
+    DOCUMENTS = [".pdf", ".docx", ".txt", ".rtf"]
+    AUDIO = [".mp3", ".wav", ".ogg", ".flac"]
+    SPREADSHEETS = [".csv", ".xlsx", ".ods"]
+    ARCHIVES = [".zip", ".rar", ".7z", ".tar.gz"]
+    PROGRAMS = [".exe", ".msi"]
+    SCRIPTS = [".py", ".sh", ".bat"]
+    FONT_FILES = [".ttf", ".otf"]
+    WEB_FILES = [".html", ".css", ".js"]
+
+
+# -------------------- Functions -------------------
+
+def _do_nothing(self, str_var, list_str_var):
+        pass
+
+
+
 
 # -------------------------------------------------------------------#
 #                          CLASS WORKER                              #
 # -------------------------------------------------------------------#
-class Worker(QObject):
+class _Worker(QObject):
     """Class for thread
     put the process in a thread and send a signal when the process
     is finished
@@ -87,52 +51,26 @@ class Worker(QObject):
 
     def __init__(self):
         super().__init__()
+        self.process_func = _do_nothing
 
     @pyqtSlot(str, list)
     def thread_process(self, path_and_folder_name, list_elements=None):
         
-        process(path_and_folder_name, list_elements)
+        self.process_func(path_and_folder_name, list_elements)
 
         self.signal_process_done.emit()
 
 
-# -------------------------------------------------------------------#
-#                          CLASS FILEEDIT                            #
-# -------------------------------------------------------------------#
-class FileEdit(QLineEdit):
-    """QlineEdit class with drag and drop added"""
-    def __init__(self, parent):
-        super(FileEdit, self).__init__(parent)
 
-        self.setDragEnabled(True)
-
-    def dragEnterEvent(self, event):
-        data = event.mimeData()
-        urls = data.urls()
-        if (urls and urls[0].scheme() == 'folder'):
-            event.acceptProposedAction()
-
-    def dragMoveEvent(self, event):
-        data = event.mimeData()
-        urls = data.urls()
-        if (urls and urls[0].scheme() == 'folder'):
-            event.acceptProposedAction()
-
-    def dropEvent(self, event):
-        data = event.mimeData()
-        urls = data.urls()
-        if (urls and urls[0].scheme() == 'folder'):
-            filepath = str(urls[0].path())[1:]
-            self.setText(filepath)
 
 
 # -------------------------------------------------------------------#
 #                         CLASS MAINWINDOW                           #
 # -------------------------------------------------------------------#
-class MainWindow(QMainWindow):
+class _MainWindow(QMainWindow):
     """class of the window"""
     def __init__(self):
-        super(MainWindow, self).__init__()
+        super(_MainWindow, self).__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
 
@@ -141,7 +79,7 @@ class MainWindow(QMainWindow):
 
         self.m_thread = QThread()
         self.m_thread.start()
-        self.m_worker = Worker()
+        self.m_worker = _Worker()
         self.m_worker.moveToThread(self.m_thread)
 
         self.set_up_connect()
@@ -156,12 +94,17 @@ class MainWindow(QMainWindow):
         self.m_worker.command.connect(self.m_worker.thread_process)
         self.m_worker.signal_process_done.connect(self.enable_ui)
 
+    def define_attribute(self, is_folder, files_extension, process_func):
+        self.is_folder = is_folder
+        self.files_extension = files_extension
+        self.files_extension_uppercase = [x.upper() for x in self.files_extension]
+        self.m_worker.process_func = process_func
+
     def adapt_const_extention_filter(self):
-        """adapt extension put in FILES_EXTENSION to the format of the filter of GetOpenFileName"""
+        """adapt extension put in files_extension to the format of the filter of GetOpenFileName"""
         filter = "Files ("
-        for element in FILES_EXTENSION:
-            filter = filter + "*" + element
-        filter = filter + ")"
+        extensions = " ".join(f"*{ext}" for ext in self.files_extension)
+        filter = filter + extensions + ")"
         return filter
 
     @pyqtSlot()
@@ -169,7 +112,7 @@ class MainWindow(QMainWindow):
         """open the finder windows,
         put the path in the fileEdit
         """
-        if IS_FOLDER:
+        if self.is_folder:
             folder = QFileDialog.getExistingDirectory(self, "Choose folder",
                                                     QDir.currentPath(), QFileDialog.ShowDirsOnly)
             self.ui.fileEdit_path.setText(folder)
@@ -183,16 +126,16 @@ class MainWindow(QMainWindow):
     @pyqtSlot()
     def run_process(self):
         """call  the process thread"""
-        if IS_FOLDER:
+        if self.is_folder:
             folder = self.ui.fileEdit_path.text()
             if os.path.isdir(folder):
-                data = [f for f in os.listdir(folder) if f.endswith(tuple(FILES_EXTENSION + FILES_EXTENSION_UPPERCASE))]
+                data = [f for f in os.listdir(folder) if f.endswith(tuple(self.files_extension + self.files_extension_uppercase))]
                 if len(data) !=0:
                     self.disable_ui()
                     self.m_worker.command.emit(folder, data)
         else:
             file = self.ui.fileEdit_path.text()
-            if file.endswith(tuple(FILES_EXTENSION + FILES_EXTENSION_UPPERCASE)) and os.path.exists(file):
+            if file.endswith(tuple(self.files_extension + self.files_extension_uppercase)) and os.path.exists(file):
                 self.disable_ui()
                 self.m_worker.command.emit(file, [])
 
@@ -224,11 +167,18 @@ class MainWindow(QMainWindow):
         self.ui.fileEdit_path.setEnabled(False)
 
 
-# -------------------- Main code -------------------
-if __name__ == "__main__":
+class FileFolderUI():
+    def __init__(self):
+        self.app = QApplication(sys.argv)
+        self.window = _MainWindow()
+        
+        self.is_folder = True
+        self.files_extension = FileExtensions.DOCUMENTS
+        self.process_func = _do_nothing
+        self.window.define_attribute(self.is_folder, self.files_extension, self.process_func)
 
-    app = QApplication(sys.argv)
-    window = MainWindow()
-
-    window.show()
-    sys.exit(app.exec())
+    def run(self):
+        self.window.define_attribute(self.is_folder, self.files_extension, self.process_func)
+        self.window.show()
+        sys.exit(self.app.exec())
+    

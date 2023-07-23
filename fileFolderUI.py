@@ -1,10 +1,11 @@
 # -------------------- Import Lib Standard -------------------
 import sys
 import os
+import inspect
 
 # -------------------- Import Lib Tier -------------------
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog
-from PyQt5.QtCore import pyqtSignal, pyqtSlot, QDir, QObject, QThread
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QProgressBar
+from PyQt5.QtCore import pyqtSignal, pyqtSlot, QDir, QObject, QThread, QRect, QSize
 
 # -------------------- Import Lib User -------------------
 from Ui_ihm import Ui_MainWindow
@@ -32,9 +33,15 @@ class FileExtensions:
 
 # -------------------- Functions -------------------
 
-def _do_nothing(self, str_var, list_str_var):
-        pass
 
+def _do_nothing1():
+    pass
+
+def _do_nothing2(str_var):
+    pass
+
+def _do_nothing3(str_var, list_str_var):
+    pass
 
 
 
@@ -51,12 +58,16 @@ class _Worker(QObject):
 
     def __init__(self):
         super().__init__()
-        self.process_func = _do_nothing
+        self.process_func1 = _do_nothing1
+        self.process_func2 = _do_nothing2
+        self.process_func3 = _do_nothing3
 
     @pyqtSlot(str, list)
     def thread_process(self, path_and_folder_name, list_elements=None):
         
-        self.process_func(path_and_folder_name, list_elements)
+        self.process_func1()
+        self.process_func2(path_and_folder_name)
+        self.process_func3(path_and_folder_name, list_elements)
 
         self.signal_process_done.emit()
 
@@ -82,6 +93,12 @@ class _MainWindow(QMainWindow):
         self.m_worker = _Worker()
         self.m_worker.moveToThread(self.m_thread)
 
+        self.progress_bar = QProgressBar(self.ui.centralwidget)
+        self.progress_bar.setRange(0,100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setGeometry(QRect(30, 10, 536, 20))
+        self.progress_bar.hide()
+
         self.set_up_connect()
 
     def set_up_connect(self):
@@ -94,11 +111,40 @@ class _MainWindow(QMainWindow):
         self.m_worker.command.connect(self.m_worker.thread_process)
         self.m_worker.signal_process_done.connect(self.enable_ui)
 
-    def define_attribute(self, is_folder, files_extension, process_func):
+    def define_attribute(self, is_folder, has_lineedit, has_progressbar, files_extension, process_func):
         self.is_folder = is_folder
         self.files_extension = files_extension
         self.files_extension_uppercase = [x.upper() for x in self.files_extension]
-        self.m_worker.process_func = process_func
+        self.has_lineedit = has_lineedit
+        self.has_progressbar = has_progressbar
+        num_args = len(inspect.getfullargspec(process_func).args)
+        if num_args == 0:
+            self.m_worker.process_func1 = process_func
+            self.m_worker.process_func2 = _do_nothing2
+            self.m_worker.process_func3 = _do_nothing3
+        if num_args == 1:
+            self.m_worker.process_func2 = process_func
+            self.m_worker.process_func1 = _do_nothing1
+            self.m_worker.process_func3 = _do_nothing3
+        if num_args == 2:
+            self.m_worker.process_func3 = process_func
+            self.m_worker.process_func1 = _do_nothing1
+            self.m_worker.process_func2 = _do_nothing2
+
+
+    def update_ui(self):
+        if self.has_progressbar:
+            self.progress_bar.show()
+        if not self.has_lineedit:
+            self.ui.fileEdit_path.hide()
+        if self.has_lineedit and self.has_progressbar:
+            self.setMinimumSize(QSize(642, 116))
+            self.setMaximumSize(QSize(642, 116))
+            self.progress_bar.setGeometry(QRect(30, 45, 536, 20))
+            self.ui.pushButton_process.setGeometry(QRect(240, 70, 75, 23))
+            self.ui.label_done.setGeometry(QRect(330, 70, 51, 20))
+            self.ui.label_process.setGeometry(QRect(330, 70, 131, 21))
+
 
     def adapt_const_extention_filter(self):
         """adapt extension put in files_extension to the format of the filter of GetOpenFileName"""
@@ -172,13 +218,20 @@ class FileFolderUI():
         self.app = QApplication(sys.argv)
         self.window = _MainWindow()
         
+        self.has_lineedit = True
+        self.has_progressbar = False
         self.is_folder = True
         self.files_extension = FileExtensions.DOCUMENTS
-        self.process_func = _do_nothing
-        self.window.define_attribute(self.is_folder, self.files_extension, self.process_func)
+        self.process_func = _do_nothing1
+        self.window.define_attribute(self.is_folder, self.has_lineedit, self.has_progressbar, self.files_extension, self.process_func)
 
     def run(self):
-        self.window.define_attribute(self.is_folder, self.files_extension, self.process_func)
+        self.window.define_attribute(self.is_folder, self.has_lineedit, self.has_progressbar, self.files_extension, self.process_func)
+        self.window.update_ui()
         self.window.show()
         sys.exit(self.app.exec())
+
     
+    def change_value_progressbar(self, value):
+        self.window.progress_bar.setValue(value)
+

@@ -1,2 +1,1 @@
-# faire un truc qui fussionne chaque split si un point dans le nom de fichier
-# (find_element) fonction à modifier, doit prendre en param le type de chose qu'on veut, dossier(s), fichier(s), et si fichier quel type
+Python project to provide a basic UI for selecting a file or folder and applying processing to it.

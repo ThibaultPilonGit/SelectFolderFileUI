@@ -55,6 +55,8 @@ class _Worker(QObject):
     """
     command = pyqtSignal(str, list)
     signal_process_done = pyqtSignal()
+    signal_set_value_progressbar = pyqtSignal(int)
+    signal_set_text_progress = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -70,6 +72,12 @@ class _Worker(QObject):
         self.process_func3(path_and_folder_name, list_elements)
 
         self.signal_process_done.emit()
+    
+    def set_value_progressbar(self, value):
+        self.signal_set_value_progressbar.emit(value)
+
+    def set_text_progress(self, text):
+        self.signal_set_text_progress.emit(text)
 
 
 
@@ -110,6 +118,8 @@ class _MainWindow(QMainWindow):
         # signals of the thread
         self.m_worker.command.connect(self.m_worker.thread_process)
         self.m_worker.signal_process_done.connect(self.enable_ui)
+        self.m_worker.signal_set_value_progressbar.connect(self.change_progressbar_value)
+        self.m_worker.signal_set_text_progress.connect(self.change_progress_text)
 
     def define_attribute(self, is_folder, has_lineedit, has_progressbar, files_extension, process_func):
         self.is_folder = is_folder
@@ -137,6 +147,7 @@ class _MainWindow(QMainWindow):
             self.progress_bar.show()
         if not self.has_lineedit:
             self.ui.fileEdit_path.hide()
+            self.ui.pushButton_browse.hide()
         if self.has_lineedit and self.has_progressbar:
             self.setMinimumSize(QSize(642, 116))
             self.setMaximumSize(QSize(642, 116))
@@ -172,7 +183,10 @@ class _MainWindow(QMainWindow):
     @pyqtSlot()
     def run_process(self):
         """call  the process thread"""
-        if self.is_folder:
+        if not self.has_lineedit:
+            self.disable_ui()
+            self.m_worker.command.emit("", [])
+        elif self.is_folder:
             folder = self.ui.fileEdit_path.text()
             if os.path.isdir(folder):
                 data = [f for f in os.listdir(folder) if f.endswith(tuple(self.files_extension + self.files_extension_uppercase))]
@@ -204,6 +218,7 @@ class _MainWindow(QMainWindow):
         self.ui.pushButton_process.setEnabled(True)
         self.ui.pushButton_browse.setEnabled(True)
         self.ui.fileEdit_path.setEnabled(True)
+        self.ui.label_process.text = "in process..."
 
     def disable_ui(self):
         """disable ui during the process"""
@@ -211,6 +226,19 @@ class _MainWindow(QMainWindow):
         self.ui.pushButton_process.setEnabled(False)
         self.ui.pushButton_browse.setEnabled(False)
         self.ui.fileEdit_path.setEnabled(False)
+
+    @pyqtSlot(int)
+    def change_progressbar_value(self, value):
+        self.progress_bar.setValue(value)
+
+    @pyqtSlot(str)
+    def change_progress_text(self, text):
+        self.ui.label_process.setText(text)
+
+
+
+
+
 
 
 class FileFolderUI():
@@ -231,7 +259,6 @@ class FileFolderUI():
         self.window.show()
         sys.exit(self.app.exec())
 
-    
-    def change_value_progressbar(self, value):
-        self.window.progress_bar.setValue(value)
+    def get_worker(self):
+        return self.window.m_worker
 
